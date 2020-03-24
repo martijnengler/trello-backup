@@ -1,3 +1,4 @@
+#!/usr/bin/env php
 <?php
 /**
  * Backups all your Trello boards (including cards, checklists, comments, etc.) as one JSON file per board.
