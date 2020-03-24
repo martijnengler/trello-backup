@@ -107,7 +107,7 @@ if (empty($boards)) {
     die("Error: No boards found in your account. Please review your configuration or start by adding a board to your account.");
 }
 
-echo count($boards) . " boards to backup... \n";
+output_or_log(count($boards) . " boards to backup...");
 
 // 5) Backup now!
 foreach ($boards as $id => $board) {
@@ -124,7 +124,7 @@ foreach ($boards as $id => $board) {
     
     $filename = $dirname . '.json';
 
-    echo "recording " . (($board->closed) ? 'the closed ' : '') . "board '" . $board->name . "' " . (empty($board->orgName) ? "" : "(within organization '" . $board->orgName . "')") . " in filename $filename ...\n";
+		output_or_log("recording " . (($board->closed) ? 'the closed ' : '') . "board '" . $board->name . "' " . (empty($board->orgName) ? "" : "(within organization '" . $board->orgName . "')") . " in filename $filename ...");
     $response = file_get_contents($url_individual_board_json, false, $ctx);
     $decoded = json_decode($response);
     if (empty($decoded)) {
@@ -145,7 +145,7 @@ foreach ($boards as $id => $board) {
         }
 
         if(!empty($attachments)) {
-            echo "\t" . count($attachments) . " attachments will now be downloaded and backed up...\n";
+					output_or_log("\t" . count($attachments) . " attachments will now be downloaded and backed up...");
 
             if (!file_exists($dirname)) {
                 mkdir($dirname, 0777, true);
@@ -154,13 +154,14 @@ foreach ($boards as $id => $board) {
             foreach ($attachments as $url => $name) {
                 $pathForAttachment = $dirname . '/' . sanitize_file_name($name);
                 file_put_contents($pathForAttachment, file_get_contents($url));
-                echo "\t" . $i++ . ") " . $name . " in " . $pathForAttachment . "\n";
+								output_or_log("\t" . $i++ . ") " . $name . " in " . $pathForAttachment);
             }
         }
     }
 
 }
-echo "your Trello boards are now safely downloaded!\n";
+
+output_or_log("your Trello boards are now safely downloaded!");
 
 /**
  * @param $path
@@ -205,5 +206,23 @@ function create_backup_dir($dirname)
 	if(!mkdir($dirname, 0777, $recursive = true))
 	{
 		die("Error creating backup dir - directory $dirname is not writeable\n");
+	}
+}
+
+function output_or_log($string, $newline = "\n")
+{
+	if ($newline) {
+		$string .= "\n";
+	}
+
+	if (!defined("SILENT_MODE") || !SILENT_MODE) {
+		echo $string;
+	}
+
+	if (defined("LOG_FILE") && !empty(LOG_FILE)) {
+		$log_string = sprintf("[%s] %s", date("Y-m-d H:i:s"), $string);
+    if(file_put_contents(LOG_FILE, $log_string, FILE_APPEND) === false) {
+			die("Can't write log to " . LOG_FILE);
+	 	}
 	}
 }

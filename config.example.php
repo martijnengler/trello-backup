@@ -34,3 +34,11 @@ $filename_append_datetime = false;
 
 //Timezone, e.g. UTC
 $timezone = 'UTC';
+
+// Echo output or not
+define("SILENT_MODE", false);
+
+// If a log file is specified, output will be logged here
+// This can be used in combination with, or instead of,
+// printing output to STDOUT (which is configured via SILENT_MODE)
+define("LOG_FILE", "/var/log/trello-backup.log");
