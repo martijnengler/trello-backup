@@ -36,22 +36,11 @@ if (strlen($application_token) < 30) {
     die("Go to this URL with your web browser (eg. Firefox) to authorize your Trello Backups to run:\n$url_token\n");
 }
 
-// Prepare proxy configuration if necessary
-$ctx = null;
-if (!empty($proxy)) {
-    $aContext = array(
-        'http' => array(
-            'proxy' => 'tcp://' . $proxy,
-            'request_fullurl' => true
-        )
-    );
-    $ctx = stream_context_create($aContext);
-}
-
 // 1) Fetch all Trello Boards
 $application_token = trim($application_token);
 $url_boards = "https://api.trello.com/1/members/me/boards?&key=$key&token=$application_token";
-$response = file_get_contents($url_boards, false, $ctx);
+$response 	= do_request($url_boards);
+
 if ($response === false) {
     die("Error requesting boards - maybe try again later and/or check your internet connection\n");
 }
@@ -62,7 +51,7 @@ if (empty($boardsInfo)) {
 
 // 2) Fetch all Trello Organizations
 $url_organizations = "https://api.trello.com/1/members/me/organizations?&key=$key&token=$application_token";
-$response = file_get_contents($url_organizations, false, $ctx);
+$response = do_request($url_organizations);
 $organizationsInfo = json_decode($response);
 $organizations = array();
 foreach ($organizationsInfo as $org) {
@@ -73,7 +62,7 @@ foreach ($organizationsInfo as $org) {
 if ($backup_all_organization_boards) {
     foreach ($organizations as $organization_id => $organization_name) {
         $url_boards = "https://api.trello.com/1/organizations/$organization_id/boards?&key=$key&token=$application_token";
-        $response = file_get_contents($url_boards, false, $ctx);
+        $response = do_request($url_boards);
         $organizationBoardsInfo = json_decode($response);
         if (empty($organizationBoardsInfo)) {
             die("Error requesting the organization $organization_name boards - maybe check your tokens are correct.\n");
@@ -113,7 +102,7 @@ output_or_log(count($boards) . " boards to backup...");
 foreach ($boards as $id => $board) {
     $url_individual_board_json = "https://api.trello.com/1/boards/$id?actions=all&actions_limit=1000&card_attachment_fields=all&cards=all&lists=all&members=all&member_fields=all&card_attachment_fields=all&checklists=all&fields=all&key=$key&token=$application_token";
     $dirname = getPathToStoreBackups($path, $board, $filename_append_datetime);
-    
+
     if(!file_exists($path)) {
         create_backup_dir($path);
     }
@@ -121,11 +110,12 @@ foreach ($boards as $id => $board) {
     if(!is_writable($path)) {
         die("You don't have permission to write to backup dir $path");
     }
-    
+
     $filename = $dirname . '.json';
 
 		output_or_log("recording " . (($board->closed) ? 'the closed ' : '') . "board '" . $board->name . "' " . (empty($board->orgName) ? "" : "(within organization '" . $board->orgName . "')") . " in filename $filename ...");
-    $response = file_get_contents($url_individual_board_json, false, $ctx);
+    $response = do_request($url_individual_board_json);
+
     $decoded = json_decode($response);
     if (empty($decoded)) {
         die("The board '$board->name' or organization '$board->orgName' could not be downloaded, response was : $response ");
@@ -225,4 +215,22 @@ function output_or_log($string, $newline = "\n")
 			die("Can't write log to " . LOG_FILE);
 	 	}
 	}
+}
+
+/**
+ * @param $url The url to fetch
+ * @return string Output from the server, or false on error
+ */
+function do_request($url)
+{
+	global $proxy;
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	// disclaimer: I don't have a proxy to test this with, but *should* work
+	curl_setopt($ch, CURLOPT_PROXY, $proxy);
+	$response = curl_exec($ch);
+	curl_close ($ch);
+	return $response;
 }
